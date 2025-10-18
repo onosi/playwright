@@ -41,3 +41,40 @@ test('Hotel Planisphereの会員登録画面で会員登録できる', async ({ 
   await expect(page.locator('body')).toContainText('男性');
   await expect(page.locator('body')).toContainText('1990年1月1日');
 });
+
+test('Hotel Planisphereで予約ができる', async ({ page }) => {
+  await page.goto('https://hotel.testplanisphere.dev/ja/');
+  const link = page.getByRole('link', { name: '宿泊予約' })
+  expect(link).toBeVisible();
+  await link.click();
+
+  // TODO: HTMLタグをButtonに修正する
+  const buttons = page.getByText('このプランで予約').nth(0);
+  // ボタンにテストIDが存在しないため一位に特定できない。今回は最初のボタンをクリックする
+  const [newPage] = await Promise.all([
+    page.context().waitForEvent('page'),
+    buttons.click(),
+  ]);
+  await newPage.waitForLoadState();
+
+  const input = newPage.getByLabel(/宿泊日/);
+  await input.click();
+  await input.fill('2025/10/20');
+  await input.click();
+
+  await newPage.getByLabel(/宿泊数/).fill('1');
+  await newPage.getByLabel(/人数/).fill('1');
+  await newPage.getByLabel(/お得な観光プラン/).check();
+  await newPage.getByLabel(/氏名/).fill('山田太郎');
+  await newPage.getByLabel(/確認のご連絡/).selectOption({ index: 1 });
+
+  Promise.all([
+    newPage.waitForURL(/confirm.html/),
+    await newPage.getByRole('button', { name: '予約内容を確認する' }).click()
+  ]);
+  await newPage.getByRole('button', { name: 'この内容で予約する' }).click();
+
+  await newPage.waitForSelector('.modal-dialog', { state: "visible", timeout: 10000 });
+  await newPage.waitForTimeout(500);
+  expect(newPage.getByText('予約を完了しました')).toBeVisible();
+});
